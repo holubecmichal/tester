@@ -1,0 +1,22 @@
+{
+    "name": "michalholubec/tester",
+    "description": "tester",
+    "type": "library",
+    "autoload": {
+        "psr-4": {
+            "Michalholubec\\Tester\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Michal Holubec",
+            "email": "michal@holubec.pro"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "nette/tester": "^2.1",
+        "mockery/mockery": "^1.1",
+        "nette/di": "^2.4"
+    }
+}
