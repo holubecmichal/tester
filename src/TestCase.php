@@ -39,8 +39,6 @@ abstract class TestCase extends NetteTestCase
 
 	abstract protected function getSeedPath(): string;
 
-	abstract protected function getAuthenticator(): IAuthenticator;
-
 	protected function migrate(): void
 	{
 		AdapterFactory::instance()->registerAdapter('sqlite', SQLiteAdapter::class);
@@ -142,6 +140,11 @@ abstract class TestCase extends NetteTestCase
 		);
 
 		return $instance->run($request);
+	}
+
+	protected function getAuthenticator(): IAuthenticator
+	{
+		throw new TesterException('Authenticator is not set');
 	}
 
 	private function presenterFactory(): PresenterFactory
