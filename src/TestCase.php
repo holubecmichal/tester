@@ -123,7 +123,7 @@ abstract class TestCase extends NetteTestCase
 		return $presenter;
 	}
 
-	protected function get(string $presenter, string $action, array $params = []): IResponse
+	protected function get(string $presenter, string $action, array $params = []): Response
 	{
 		$instance = $this->initPresenterByClass($presenter);
 
@@ -139,10 +139,10 @@ abstract class TestCase extends NetteTestCase
 			$params
 		);
 
-		return $instance->run($request);
+		return new Response($instance->run($request));
 	}
 
-	protected function post(string $presenter, string $action, array $params = [], array $post = [], array $files = []): IResponse
+	protected function post(string $presenter, string $action, array $params = [], array $post = [], array $files = []): Response
 	{
 		$instance = $this->initPresenterByClass($presenter);
 
@@ -160,7 +160,7 @@ abstract class TestCase extends NetteTestCase
 			$files
 		);
 
-		return $instance->run($request);
+		return new Response($instance->run($request));
 	}
 
 	protected function getAuthenticator(): IAuthenticator
