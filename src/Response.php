@@ -48,7 +48,7 @@ class Response
 		return $this->html;
 	}
 
-	public function contains(string $contains): void
+	public function assertContains(string $contains): void
 	{
 		Assert::contains($contains, $this->getHtml());
 	}
