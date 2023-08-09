@@ -72,4 +72,9 @@ abstract class TestCase extends NetteTestCase
 
 		return $mock;
 	}
+
+	protected function tearDown(): void
+	{
+		\Mockery::close();
+	}
 }
