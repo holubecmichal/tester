@@ -142,6 +142,27 @@ abstract class TestCase extends NetteTestCase
 		return $instance->run($request);
 	}
 
+	protected function post(string $presenter, string $action, array $params = [], array $post = [], array $files = []): IResponse
+	{
+		$instance = $this->initPresenterByClass($presenter);
+
+		if ($this->login !== null) {
+			$this->processLogin($instance, $this->getAuthenticator());
+		}
+
+		$params = array_merge(['action' => $action], $params);
+
+		$request = new \Nette\Application\Request(
+			$this->presenterFactory()->unformatPresenterClass($presenter),
+			'POST',
+			$params,
+			$post,
+			$files
+		);
+
+		return $instance->run($request);
+	}
+
 	protected function getAuthenticator(): IAuthenticator
 	{
 		throw new TesterException('Authenticator is not set');
