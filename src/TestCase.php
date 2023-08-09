@@ -5,7 +5,13 @@ namespace Michalholubec\Tester;
 use Doctrine\DBAL\Connection;
 use Michalholubec\Tester\Exceptions\TesterException;
 use Mockery\MockInterface;
+use Nette\Application\IPresenter;
+use Nette\Application\IPresenterFactory;
+use Nette\Application\IResponse;
+use Nette\Application\PresenterFactory;
+use Nette\Application\Request;
 use Nette\DI\Container;
+use Nette\Security\IAuthenticator;
 use Phinx\Config\Config;
 use Phinx\Db\Adapter\AdapterFactory;
 use Phinx\Migration\Manager;
@@ -21,6 +27,9 @@ abstract class TestCase extends NetteTestCase
 	/** @var Manager */
 	private $phinxManager;
 
+	/** @var Login|null */
+	private $login;
+
 	public function __construct(Container $container)
 	{
 		$this->container = $container;
@@ -29,6 +38,8 @@ abstract class TestCase extends NetteTestCase
 	abstract protected function getMigrationPaths(): array;
 
 	abstract protected function getSeedPath(): string;
+
+	abstract protected function getAuthenticator(): IAuthenticator;
 
 	protected function migrate(): void
 	{
@@ -76,5 +87,65 @@ abstract class TestCase extends NetteTestCase
 	protected function tearDown(): void
 	{
 		\Mockery::close();
+	}
+
+	/**
+	 * @template TClass
+	 * @param class-string<TClass> $class
+	 * @return TClass
+	 */
+	protected function getByType(string $class)
+	{
+		return $this->container->getByType($class);
+	}
+
+	protected function logAs(string $username, string $password): self
+	{
+		$this->login = new Login($username, $password);
+
+		return $this;
+	}
+
+	private function processLogin(IPresenter $presenter, IAuthenticator $authenticator): void
+	{
+		$presenter->getUser()->login(
+			$authenticator->authenticate(
+				[$this->login->getUsername(), $this->login->getPassword()]
+			)
+		);
+	}
+
+	private function initPresenterByClass(string $class): IPresenter
+	{
+		$factory = $this->presenterFactory();
+
+		$presenter = $factory->createPresenter($factory->unformatPresenterClass($class));
+		$presenter->autoCanonicalize = false;
+
+		return $presenter;
+	}
+
+	protected function get(string $presenter, string $action, array $params = []): IResponse
+	{
+		$instance = $this->initPresenterByClass($presenter);
+
+		if ($this->login !== null) {
+			$this->processLogin($instance, $this->getAuthenticator());
+		}
+
+		$params = array_merge(['action' => $action], $params);
+
+		$request = new Request(
+			$this->presenterFactory()->unformatPresenterClass($presenter),
+			'GET',
+			$params
+		);
+
+		return $instance->run($request);
+	}
+
+	private function presenterFactory(): PresenterFactory
+	{
+		return $this->getByType(IPresenterFactory::class);
 	}
 }
