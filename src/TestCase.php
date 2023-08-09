@@ -18,6 +18,9 @@ abstract class TestCase extends NetteTestCase
 	/** @var Container */
 	protected $container;
 
+	/** @var Manager */
+	private $phinxManager;
+
 	public function __construct(Container $container)
 	{
 		$this->container = $container;
@@ -44,9 +47,14 @@ abstract class TestCase extends NetteTestCase
 		$config['paths']['migrations'] = $this->getMigrationPaths();
 		$config['paths']['seeds'] = $this->getSeedPath();
 
-		$manager = new Manager(new Config($config), new StringInput(' '), new NullOutput());
+		$this->phinxManager = new Manager(new Config($config), new StringInput(' '), new NullOutput());
 
-		$manager->migrate('test');
+		$this->phinxManager->migrate('test');
+	}
+
+	protected function seed(string $seeder): void
+	{
+		$this->phinxManager->seed('test', $seeder);
 	}
 
 	protected function mock(string $class): MockInterface
