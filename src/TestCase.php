@@ -35,6 +35,9 @@ abstract class TestCase extends NetteTestCase
 		$this->container = $container;
 	}
 
+	/**
+	 * @return array<string>
+	 */
 	abstract protected function getMigrationPaths(): array;
 
 	abstract protected function getSeedPath(): string;
