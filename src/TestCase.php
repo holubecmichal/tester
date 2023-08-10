@@ -100,7 +100,10 @@ abstract class TestCase extends NetteTestCase
 		return $this->container->getByType($class);
 	}
 
-	protected function logAs(string $username, string $password): self
+	/**
+	 * @return static
+	 */
+	protected function logAs(string $username, string $password): TestCase
 	{
 		$this->login = new Login($username, $password);
 
