@@ -10,6 +10,7 @@ use Nette\Application\IPresenterFactory;
 use Nette\Application\IResponse;
 use Nette\Application\PresenterFactory;
 use Nette\Application\Request;
+use Nette\Database\Context;
 use Nette\DI\Container;
 use Nette\Security\IAuthenticator;
 use Phinx\Config\Config;
@@ -17,6 +18,7 @@ use Phinx\Db\Adapter\AdapterFactory;
 use Phinx\Migration\Manager;
 use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Output\NullOutput;
+use Tester\Assert;
 use Tester\TestCase as NetteTestCase;
 
 abstract class TestCase extends NetteTestCase
@@ -177,5 +179,24 @@ abstract class TestCase extends NetteTestCase
 	private function presenterFactory(): PresenterFactory
 	{
 		return $this->getByType(IPresenterFactory::class);
+	}
+
+	public function assertDatabaseCount(string $table, int $count): void
+	{
+		$result = $this->getByType(Context::class)->table($table)->count();
+
+		Assert::equal($count, $result);
+	}
+
+	public function assertDatabaseEmpty(string $table): void
+	{
+		$this->assertDatabaseCount($table, 0);
+	}
+
+	public function assertDatabaseHas(string $table, array $data): void
+	{
+		$count = $this->getByType(Context::class)->table($table)->where($data)->count();
+
+		Assert::notEqual(0, $count);
 	}
 }
