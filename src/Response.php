@@ -57,4 +57,18 @@ class Response
 	{
 		return $this->response;
 	}
+
+	/**
+	 * @return array<mixed>
+	 */
+	public function getJsonPayload(): array
+	{
+		\assert($this->response instanceof JsonResponse);
+
+		$payload = $this->response->getPayload();
+
+		\assert(is_array($payload));
+
+		return $payload;
+	}
 }
