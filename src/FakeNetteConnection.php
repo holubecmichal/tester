@@ -5,8 +5,6 @@ use Nette;
 use Nette\Database\Driver;
 use Nette\Database\DriverException;
 use Nette\Database\Drivers\SqliteDriver;
-use Nette\Database\IRow;
-use Nette\Database\ISupplementalDriver;
 use Nette\Database\ResultSet;
 use Nette\Database\Row;
 use Nette\Database\SqlLiteral;
@@ -45,7 +43,7 @@ class FakeNetteConnection extends Nette\Database\Connection
 	private $pdo;
 
 	/** @var callable(array, ResultSet): array */
-	private $rowNormalizer = [Helpers::class, 'normalizeRow'];
+	private $rowNormalizer = [Nette\Database\Helpers::class, 'normalizeRow'];
 
 	/** @var string|null */
 	private $sql;
