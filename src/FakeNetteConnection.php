@@ -46,17 +46,21 @@ class FakeNetteConnection extends Nette\Database\Connection
 
 	private $wrappedPdo;
 
-	public function __construct($wrappedPdo, $dsn, $user = null, $password = null, array $options = null)
+	public function __construct($wrappedPdo, string $dsn, string $user = null, $password = null, array $options = null)
 	{
 		$this->wrappedPdo = $wrappedPdo;
 
 		$this->params = array($dsn, $user, $password);
 		$this->options = (array) $options;
+
+		if (empty($options['lazy'])) {
+			$this->connect();
+		}
 	}
 
 
 	/** @return void */
-	public function connect()
+	public function connect(): void
 	{
 		if ($this->pdo) {
 			return;
@@ -64,9 +68,7 @@ class FakeNetteConnection extends Nette\Database\Connection
 
 		$this->pdo = $this->wrappedPdo;
 
-		$this->driver = new SqliteDriver($this, [
-			'formatDateTime' => "'Y-m-d H:i:s'"
-		]);
+		$this->driver = new SqliteDriver();
 
 		$this->preprocessor = new SqlPreprocessor($this);
 		$this->onConnect($this);
@@ -74,7 +76,7 @@ class FakeNetteConnection extends Nette\Database\Connection
 
 
 	/** @return void */
-	public function reconnect()
+	public function reconnect(): void
 	{
 		$this->disconnect();
 		$this->connect();
@@ -82,21 +84,21 @@ class FakeNetteConnection extends Nette\Database\Connection
 
 
 	/** @return void */
-	public function disconnect()
+	public function disconnect(): void
 	{
 		$this->pdo = null;
 	}
 
 
 	/** @return string */
-	public function getDsn()
+	public function getDsn(): string
 	{
 		return $this->params[0];
 	}
 
 
 	/** @return PDO */
-	public function getPdo()
+	public function getPdo(): PDO
 	{
 		$this->connect();
 		return $this->pdo;
@@ -104,7 +106,7 @@ class FakeNetteConnection extends Nette\Database\Connection
 
 
 	/** @return Nette\Database\ISupplementalDriver */
-	public function getSupplementalDriver()
+	public function getSupplementalDriver(): ISupplementalDriver
 	{
 		$this->connect();
 		return $this->driver;
@@ -115,10 +117,10 @@ class FakeNetteConnection extends Nette\Database\Connection
 	 * @param  string  sequence object
 	 * @return string
 	 */
-	public function getInsertId($name = null)
+	public function getInsertId(string $sequence = null): string
 	{
 		try {
-			$res = $this->getPdo()->lastInsertId($name);
+			$res = $this->getPdo()->lastInsertId($sequence);
 			return $res === false ? '0' : $res;
 		} catch (PDOException $e) {
 			throw $this->driver->convertException($e);
@@ -131,7 +133,7 @@ class FakeNetteConnection extends Nette\Database\Connection
 	 * @param  int     data type hint
 	 * @return string
 	 */
-	public function quote($string, $type = PDO::PARAM_STR)
+	public function quote(string $string, int $type = PDO::PARAM_STR): string
 	{
 		try {
 			$res = $this->getPdo()->quote($string, $type);
@@ -146,21 +148,21 @@ class FakeNetteConnection extends Nette\Database\Connection
 
 
 	/** @return void */
-	public function beginTransaction()
+	public function beginTransaction(): void
 	{
 		$this->query('::beginTransaction');
 	}
 
 
 	/** @return void */
-	public function commit()
+	public function commit(): void
 	{
 		$this->query('::commit');
 	}
 
 
 	/** @return void */
-	public function rollBack()
+	public function rollBack(): void
 	{
 		$this->query('::rollBack');
 	}
@@ -171,7 +173,7 @@ class FakeNetteConnection extends Nette\Database\Connection
 	 * @param  string
 	 * @return ResultSet
 	 */
-	public function query($sql, ...$params)
+	public function query(string $sql, ...$params): ResultSet
 	{
 		list($this->sql, $params) = $this->preprocess($sql, ...$params);
 		try {
@@ -189,7 +191,7 @@ class FakeNetteConnection extends Nette\Database\Connection
 	 * @param  string
 	 * @return ResultSet
 	 */
-	public function queryArgs($sql, array $params)
+	public function queryArgs($sql, array $params): ResultSet
 	{
 		return $this->query($sql, ...$params);
 	}
@@ -198,7 +200,7 @@ class FakeNetteConnection extends Nette\Database\Connection
 	/**
 	 * @return [string, array]
 	 */
-	public function preprocess($sql, ...$params)
+	public function preprocess(string $sql, ...$params): array
 	{
 		$this->connect();
 		return $params
@@ -210,7 +212,7 @@ class FakeNetteConnection extends Nette\Database\Connection
 	/**
 	 * @return string|null
 	 */
-	public function getLastQueryString()
+	public function getLastQueryString(): ?string
 	{
 		return $this->sql;
 	}
@@ -224,7 +226,7 @@ class FakeNetteConnection extends Nette\Database\Connection
 	 * @param  string
 	 * @return Row
 	 */
-	public function fetch($sql, ...$params)
+	public function fetch(string $sql, ...$params): ?Nette\Database\IRow
 	{
 		return $this->query($sql, ...$params)->fetch();
 	}
@@ -235,7 +237,7 @@ class FakeNetteConnection extends Nette\Database\Connection
 	 * @param  string
 	 * @return mixed
 	 */
-	public function fetchField($sql, ...$params)
+	public function fetchField(string $sql, ...$params)
 	{
 		return $this->query($sql, ...$params)->fetchField();
 	}
@@ -246,7 +248,7 @@ class FakeNetteConnection extends Nette\Database\Connection
 	 * @param  string
 	 * @return array|null
 	 */
-	public function fetchFields($sql, ...$params)
+	public function fetchFields(string $sql, ...$params): ?array
 	{
 		return $this->query($sql, ...$params)->fetchFields();
 	}
@@ -257,7 +259,7 @@ class FakeNetteConnection extends Nette\Database\Connection
 	 * @param  string
 	 * @return array
 	 */
-	public function fetchPairs($sql, ...$params)
+	public function fetchPairs(string $sql, ...$params): array
 	{
 		return $this->query($sql, ...$params)->fetchPairs();
 	}
@@ -268,7 +270,7 @@ class FakeNetteConnection extends Nette\Database\Connection
 	 * @param  string
 	 * @return array
 	 */
-	public function fetchAll($sql, ...$params)
+	public function fetchAll(string $sql, ...$params): array
 	{
 		return $this->query($sql, ...$params)->fetchAll();
 	}
@@ -277,7 +279,7 @@ class FakeNetteConnection extends Nette\Database\Connection
 	/**
 	 * @return SqlLiteral
 	 */
-	public static function literal($value, ...$params)
+	public static function literal(string $value, ...$params): SqlLiteral
 	{
 		return new SqlLiteral($value, $params);
 	}
