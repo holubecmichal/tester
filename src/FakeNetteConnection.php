@@ -79,7 +79,9 @@ class FakeNetteConnection extends Nette\Database\Connection
 		$this->driver = new SqliteDriver();
 
 		$this->preprocessor = new SqlPreprocessor($this);
-		$this->driver->initialize($this, $this->options);
+		$this->driver->initialize($this, array_merge($this->options, [
+			'formatDateTime' => "'Y-m-d H:i:s'"
+		]));
 		Arrays::invoke($this->onConnect, $this);
 	}
 
