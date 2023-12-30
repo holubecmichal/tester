@@ -2,6 +2,7 @@
 namespace Michalholubec\Tester;
 
 use Nette;
+use Nette\Database\Driver;
 use Nette\Database\DriverException;
 use Nette\Database\Drivers\SqliteDriver;
 use Nette\Database\IRow;
@@ -10,6 +11,7 @@ use Nette\Database\ResultSet;
 use Nette\Database\Row;
 use Nette\Database\SqlLiteral;
 use Nette\Database\SqlPreprocessor;
+use Nette\Utils\Arrays;
 use PDO;
 use PDOException;
 
@@ -21,11 +23,11 @@ class FakeNetteConnection extends Nette\Database\Connection
 {
 	use Nette\SmartObject;
 
-	/** @var callable[]  function (Connection $connection): void; Occurs after connection is established */
-	public $onConnect;
+	/** @var array<callable(self): void>  Occurs after connection is established */
+	public $onConnect = [];
 
-	/** @var callable[]  function (Connection $connection, ResultSet|DriverException $result): void; Occurs after query is executed */
-	public $onQuery;
+	/** @var array<callable(self, ResultSet|DriverException): void>  Occurs after query is executed */
+	public $onQuery = [];
 
 	/** @var array */
 	private $params;
@@ -33,7 +35,7 @@ class FakeNetteConnection extends Nette\Database\Connection
 	/** @var array */
 	private $options;
 
-	/** @var ISupplementalDriver */
+	/** @var Driver */
 	private $driver;
 
 	/** @var SqlPreprocessor */
@@ -42,12 +44,18 @@ class FakeNetteConnection extends Nette\Database\Connection
 	/** @var PDO */
 	private $pdo;
 
+	/** @var callable(array, ResultSet): array */
+	private $rowNormalizer = [Helpers::class, 'normalizeRow'];
+
 	/** @var string|null */
 	private $sql;
 
+	/** @var int */
+	private $transactionDepth = 0;
+
 	private $wrappedPdo;
 
-	public function __construct($wrappedPdo, string $dsn, string $user = null, $password = null, array $options = null)
+	public function __construct($wrappedPdo, string $dsn, ?string $user = null, ?string $password = null, ?array $options = null)
 	{
 		$this->wrappedPdo = $wrappedPdo;
 
@@ -60,7 +68,6 @@ class FakeNetteConnection extends Nette\Database\Connection
 	}
 
 
-	/** @return void */
 	public function connect(): void
 	{
 		if ($this->pdo) {
@@ -76,7 +83,6 @@ class FakeNetteConnection extends Nette\Database\Connection
 	}
 
 
-	/** @return void */
 	public function reconnect(): void
 	{
 		$this->disconnect();
@@ -84,21 +90,18 @@ class FakeNetteConnection extends Nette\Database\Connection
 	}
 
 
-	/** @return void */
 	public function disconnect(): void
 	{
 		$this->pdo = null;
 	}
 
 
-	/** @return string */
 	public function getDsn(): string
 	{
 		return $this->params[0];
 	}
 
 
-	/** @return PDO */
 	public function getPdo(): PDO
 	{
 		$this->connect();
@@ -106,19 +109,29 @@ class FakeNetteConnection extends Nette\Database\Connection
 	}
 
 
-	/** @return Nette\Database\ISupplementalDriver */
-	public function getSupplementalDriver(): ISupplementalDriver
+	public function getDriver(): Driver
 	{
 		$this->connect();
 		return $this->driver;
 	}
 
 
-	/**
-	 * @param  string  sequence object
-	 * @return string
-	 */
-	public function getInsertId(string $sequence = null): string
+	/** @deprecated use getDriver() */
+	public function getSupplementalDriver(): Driver
+	{
+		$this->connect();
+		return $this->driver;
+	}
+
+
+	public function setRowNormalizer(?callable $normalizer): self
+	{
+		$this->rowNormalizer = $normalizer;
+		return $this;
+	}
+
+
+	public function getInsertId(?string $sequence = null): string
 	{
 		try {
 			$res = $this->getPdo()->lastInsertId($sequence);
@@ -129,77 +142,105 @@ class FakeNetteConnection extends Nette\Database\Connection
 	}
 
 
-	/**
-	 * @param  string  string to be quoted
-	 * @param  int     data type hint
-	 * @return string
-	 */
 	public function quote(string $string, int $type = PDO::PARAM_STR): string
 	{
 		try {
-			$res = $this->getPdo()->quote($string, $type);
+			return $this->getPdo()->quote($string, $type);
 		} catch (PDOException $e) {
 			throw DriverException::from($e);
 		}
-		if (!is_string($res)) {
-			throw new DriverException('PDO driver is unable to quote string.');
-		}
-		return $res;
 	}
 
 
-	/** @return void */
 	public function beginTransaction(): void
 	{
+		if ($this->transactionDepth !== 0) {
+			throw new \LogicException(__METHOD__ . '() call is forbidden inside a transaction() callback');
+		}
+
 		$this->query('::beginTransaction');
 	}
 
 
-	/** @return void */
 	public function commit(): void
 	{
+		if ($this->transactionDepth !== 0) {
+			throw new \LogicException(__METHOD__ . '() call is forbidden inside a transaction() callback');
+		}
+
 		$this->query('::commit');
 	}
 
 
-	/** @return void */
 	public function rollBack(): void
 	{
+		if ($this->transactionDepth !== 0) {
+			throw new \LogicException(__METHOD__ . '() call is forbidden inside a transaction() callback');
+		}
+
 		$this->query('::rollBack');
 	}
 
 
 	/**
-	 * Generates and executes SQL query.
-	 * @param  string
-	 * @return ResultSet
+	 * @return mixed
 	 */
-	public function query(string $sql, ...$params): ResultSet
+	public function transaction(callable $callback)
 	{
-		list($this->sql, $params) = $this->preprocess($sql, ...$params);
+		if ($this->transactionDepth === 0) {
+			$this->beginTransaction();
+		}
+
+		$this->transactionDepth++;
 		try {
-			$result = new ResultSet($this, $this->sql, $params);
-		} catch (PDOException $e) {
-			$this->onQuery($this, $e);
+			$res = $callback($this);
+		} catch (\Throwable $e) {
+			$this->transactionDepth--;
+			if ($this->transactionDepth === 0) {
+				$this->rollback();
+			}
+
 			throw $e;
 		}
-		$this->onQuery($this, $result);
-		return $result;
+
+		$this->transactionDepth--;
+		if ($this->transactionDepth === 0) {
+			$this->commit();
+		}
+
+		return $res;
 	}
 
 
 	/**
-	 * @param  string
-	 * @return ResultSet
+	 * Generates and executes SQL query.
+	 * @param  literal-string  $sql
 	 */
-	public function queryArgs($sql, array $params): ResultSet
+	public function query(string $sql, ...$params): ResultSet
+	{
+		[$this->sql, $params] = $this->preprocess($sql, ...$params);
+		try {
+			$result = new ResultSet($this, $this->sql, $params, $this->rowNormalizer);
+		} catch (PDOException $e) {
+			Arrays::invoke($this->onQuery, $this, $e);
+			throw $e;
+		}
+
+		Arrays::invoke($this->onQuery, $this, $result);
+		return $result;
+	}
+
+
+	/** @deprecated  use query() */
+	public function queryArgs(string $sql, array $params): ResultSet
 	{
 		return $this->query($sql, ...$params);
 	}
 
 
 	/**
-	 * @return [string, array]
+	 * @param  literal-string  $sql
+	 * @return array{string, array}
 	 */
 	public function preprocess(string $sql, ...$params): array
 	{
@@ -210,9 +251,6 @@ class FakeNetteConnection extends Nette\Database\Connection
 	}
 
 
-	/**
-	 * @return string|null
-	 */
 	public function getLastQueryString(): ?string
 	{
 		return $this->sql;
@@ -224,10 +262,9 @@ class FakeNetteConnection extends Nette\Database\Connection
 
 	/**
 	 * Shortcut for query()->fetch()
-	 * @param  string
-	 * @return Row
+	 * @param  literal-string  $sql
 	 */
-	public function fetch(string $sql, ...$params): ?IRow
+	public function fetch(string $sql, ...$params): ?Row
 	{
 		return $this->query($sql, ...$params)->fetch();
 	}
@@ -235,7 +272,7 @@ class FakeNetteConnection extends Nette\Database\Connection
 
 	/**
 	 * Shortcut for query()->fetchField()
-	 * @param  string
+	 * @param  literal-string  $sql
 	 * @return mixed
 	 */
 	public function fetchField(string $sql, ...$params)
@@ -246,8 +283,7 @@ class FakeNetteConnection extends Nette\Database\Connection
 
 	/**
 	 * Shortcut for query()->fetchFields()
-	 * @param  string
-	 * @return array|null
+	 * @param  literal-string  $sql
 	 */
 	public function fetchFields(string $sql, ...$params): ?array
 	{
@@ -257,8 +293,7 @@ class FakeNetteConnection extends Nette\Database\Connection
 
 	/**
 	 * Shortcut for query()->fetchPairs()
-	 * @param  string
-	 * @return array
+	 * @param  literal-string  $sql
 	 */
 	public function fetchPairs(string $sql, ...$params): array
 	{
@@ -268,8 +303,7 @@ class FakeNetteConnection extends Nette\Database\Connection
 
 	/**
 	 * Shortcut for query()->fetchAll()
-	 * @param  string
-	 * @return array
+	 * @param  literal-string  $sql
 	 */
 	public function fetchAll(string $sql, ...$params): array
 	{
@@ -277,9 +311,6 @@ class FakeNetteConnection extends Nette\Database\Connection
 	}
 
 
-	/**
-	 * @return SqlLiteral
-	 */
 	public static function literal(string $value, ...$params): SqlLiteral
 	{
 		return new SqlLiteral($value, $params);

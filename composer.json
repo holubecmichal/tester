@@ -20,7 +20,7 @@
         "doctrine/dbal": "^2.0",
         "mockery/mockery": "^1.1",
         "nette/application": "^3.0",
-        "nette/database": "^3.0",
+        "nette/database": "^3.1",
         "nette/di": "^3.0",
         "nette/security": "^3.0",
         "nette/tester": "^2.1",
