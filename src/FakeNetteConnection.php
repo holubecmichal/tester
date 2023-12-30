@@ -4,6 +4,7 @@ namespace Michalholubec\Tester;
 use Nette;
 use Nette\Database\DriverException;
 use Nette\Database\Drivers\SqliteDriver;
+use Nette\Database\IRow;
 use Nette\Database\ISupplementalDriver;
 use Nette\Database\ResultSet;
 use Nette\Database\Row;
@@ -226,7 +227,7 @@ class FakeNetteConnection extends Nette\Database\Connection
 	 * @param  string
 	 * @return Row
 	 */
-	public function fetch(string $sql, ...$params): ?Nette\Database\IRow
+	public function fetch(string $sql, ...$params): ?IRow
 	{
 		return $this->query($sql, ...$params)->fetch();
 	}
