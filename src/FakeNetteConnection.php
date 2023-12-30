@@ -79,7 +79,8 @@ class FakeNetteConnection extends Nette\Database\Connection
 		$this->driver = new SqliteDriver();
 
 		$this->preprocessor = new SqlPreprocessor($this);
-		$this->onConnect($this);
+		$this->driver->initialize($this, $this->options);
+		Arrays::invoke($this->onConnect, $this);
 	}
 
 
