@@ -79,7 +79,7 @@ abstract class TestCase extends NetteTestCase
 			throw new TesterException('Unknown service to mock');
 		}
 
-		$mock = \Mockery::mock($this->container->getService($type[0]));
+		$mock = \Mockery::mock(get_class($this->container->getService($type[0])));
 
 		$this->container->removeService($type[0]);
 		$this->container->addService($type[0], $mock);
