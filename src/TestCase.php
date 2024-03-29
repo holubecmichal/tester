@@ -73,16 +73,16 @@ abstract class TestCase extends NetteTestCase
 
 	protected function mock(string $class): MockInterface
 	{
-		$mock = \Mockery::mock($class);
+		$type = $this->container->findByType($class);
 
-		$types = $this->container->findByType($class);
-
-		if (count($types) === 0) {
+		if (count($type) === 0) {
 			throw new TesterException('Unknown service to mock');
 		}
 
-		$this->container->removeService($types[0]);
-		$this->container->addService($types[0], $mock);
+		$mock = \Mockery::mock($this->container->getService($type[0]));
+
+		$this->container->removeService($type[0]);
+		$this->container->addService($type[0], $mock);
 
 		return $mock;
 	}
