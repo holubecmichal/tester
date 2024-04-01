@@ -176,7 +176,7 @@ abstract class TestCase extends NetteTestCase
 		$params = array_merge(['action' => $action], $params);
 
 		$request = new \Nette\Application\Request(
-			$this->presenterFactory()->unformatPresenterClass($presenter),
+			$this->unformatPresenterClass($presenter),
 			'POST',
 			$params,
 			$post,
