@@ -125,10 +125,25 @@ abstract class TestCase extends NetteTestCase
 	{
 		$factory = $this->presenterFactory();
 
-		$presenter = $factory->createPresenter($factory->unformatPresenterClass($class));
+		$presenter = $factory->createPresenter($this->unformatPresenterClass($class));
 		$presenter->autoCanonicalize = false;
 
 		return $presenter;
+	}
+
+	private function unformatPresenterClass(string $class): ?string
+	{
+		$factory = $this->presenterFactory();
+
+		$originalErrorReporting = error_reporting();
+
+		error_reporting($originalErrorReporting & ~E_USER_DEPRECATED);
+
+		$result = $factory->unformatPresenterClass($class);
+
+		error_reporting($originalErrorReporting);
+
+		return $result;
 	}
 
 	protected function get(string $presenter, string $action, array $params = []): Response
@@ -142,7 +157,7 @@ abstract class TestCase extends NetteTestCase
 		$params = array_merge(['action' => $action], $params);
 
 		$request = new Request(
-			$this->presenterFactory()->unformatPresenterClass($presenter),
+			$this->unformatPresenterClass($presenter),
 			'GET',
 			$params
 		);
